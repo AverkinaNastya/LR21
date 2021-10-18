@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <strsafe.h>
 #include <iostream>
+#include <fstream>
+#include <string>
 
 #pragma warning(disable : 4996)
 
@@ -17,7 +19,8 @@ int _tmain(DWORD argc, LPTSTR argv[])
 результатов предоставляется временный файл в текущем каталоге. */
 {
 	setlocale(LC_ALL, ".1251");
-	HANDLE hTempFile = 0;
+	std::string line;
+	HANDLE hTempFile;
 	BOOL prov;
 	TCHAR outFile[MAX_PATH + 100];
 	SECURITY_ATTRIBUTES StdOutSA =
@@ -50,11 +53,11 @@ int _tmain(DWORD argc, LPTSTR argv[])
 	for (iProc = 0; iProc < argc - 2; iProc++)
 	{
 		/* Создать командную строку вида grep argv [1] argv [iProc + 2] */
-		_stprintf(CommandLine, _T("%s%s %s"),
+		_stprintf(CommandLine, _T("%s\"%s\" %s"),
 			_T("find "), argv[1], argv[iProc + 2]);
 		_tprintf(_T("%s\n"), CommandLine);
-		if (GetTempFileName(_T("."), _T("gtm"), 0,
-			ProcFile[iProc].TempFile) == 0)
+		GetTempFileName(_T("."), _T("gtm"), 0,
+			ProcFile[iProc].TempFile);
 			/* Указываем стандартный вывод для процесса поиска. */
 			hTempFile = /* Этот дескриптор наследуемый */
 			CreateFile(ProcFile[iProc].TempFile, GENERIC_WRITE,
@@ -96,16 +99,25 @@ int _tmain(DWORD argc, LPTSTR argv[])
 
 			cat(argv[iProc + 2], (LPTSTR)outFile);
 			_stprintf(CommandLine, _T("%s%s"),
-				_T("cat "), ProcFile[iProc].TempFile);
+				_T("type "), ProcFile[iProc].TempFile);
 			_tprintf(_T("%s\n"), CommandLine);
 			CreateProcess(NULL, CommandLine, NULL, NULL,
 				TRUE, 0, NULL, NULL, &StartUp, &ProcessInfo);
 			WaitForSingleObject(ProcessInfo.hProcess, INFINITE);
+			std::ifstream in(ProcFile[iProc].TempFile);
+			if (in.is_open())
+			{
+				while (getline(in, line))
+				{
+					std::cout << line << std::endl;
+				}
+			}
+			in.close();
 			CloseHandle(ProcessInfo.hProcess);
 			CloseHandle(ProcessInfo.hThread);
 		}
 		CloseHandle(hProc[iProc]);
-		/*DeleteFile (ProcFile [iProc].TempFile); */
+		DeleteFile (ProcFile[iProc].TempFile);
 	}
 	free(ProcFile);
 	free(hProc);
